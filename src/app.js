@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors"
-import stripe from "./config/stripe.js";
+import paymentRoutes from "./routes/paymentRoutes.js"
 
 const app = express();
 
@@ -8,10 +8,11 @@ app.use(cors());
 
 app.use(express.json());
 
-app.get("/", async(req,res) => {
-     const balance = await stripe.balance.retrieve();
+//payment
+app.use("/api/payments",paymentRoutes)
 
-  res.json(balance);
+app.get("/", (req,res) => {
+    res.send("Server is running")
 })
 
 export default app;
