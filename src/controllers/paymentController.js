@@ -17,8 +17,6 @@ export const checkout = async (req, res ) => {
                 message: "Product not found",
             })
         }
-
-        //create stripe checkout session
         const session = await createCheckoutSession(product)
 
         //save payment in db
@@ -30,8 +28,7 @@ export const checkout = async (req, res ) => {
 
         //send checkout url
         res.status(200).json({
-            url: session.url,
-            id: session.id
+           clientSecret: session.client_secret,
         }) 
     } catch (error) {
         console.log(error)
