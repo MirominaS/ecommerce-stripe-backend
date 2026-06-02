@@ -57,7 +57,13 @@ export const getAllOrdersService = async () => {
 };
 
 export const updateOrderStatusService = async (orderId, status) => {
-  const order = await Order.findOne({
+    const validStatuses = ["processing", "shipped","delivered", "cancelled"]
+
+    if(!validStatuses.includes(status)) {
+        throw new Error("Invalid order status")
+    }
+
+    const order = await Order.findOne({
     _id: orderId,
     isActive: true,
   });

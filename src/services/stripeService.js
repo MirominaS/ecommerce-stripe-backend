@@ -22,6 +22,11 @@ export const createCheckoutSessionService = async (user, items) => {
     quantity: item.quantity,
   }));
 
+  const totalAmount = items.reduce(
+    (total, item) => total + item.price * item.quantity,
+      0
+  );
+
   //create stripe session
   const session = await stripe.checkout.sessions.create({
     ui_mode: "embedded_page",

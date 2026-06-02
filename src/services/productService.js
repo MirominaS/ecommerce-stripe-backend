@@ -24,7 +24,7 @@ export const getProductByIdService = async (productId) => {
 }
 
 export const updateProductService = async (productId, updateData) => {
-    const updatedProduct = await Product.findByIdAndUpdate(
+    const updatedProduct = await Product.findOneAndUpdate(
         {
             _id: productId,
             isActive: true,
