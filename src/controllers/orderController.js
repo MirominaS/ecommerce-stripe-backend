@@ -60,13 +60,13 @@ export const getAllOrders = async (req,res) => {
     const status = req.query.status || "";
     const search = req.query.search || "";
 
-        const data = await getAllOrdersService(
+        const data = await getAllOrdersService({
             page,
             limit,
             skip,
             status,
             search,
-        )
+     } )
 
         res.status(200).json({
             success:true,
