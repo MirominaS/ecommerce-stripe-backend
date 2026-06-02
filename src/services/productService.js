@@ -7,20 +7,28 @@ export const createProductService = async (productData) => {
 }
 
 export const getProductService = async () => {
-    const products = await Product.find()
+    const products = await Product.find({
+        isActive: true,
+    })
 
     return products;
 }
 
 export const getProductByIdService = async (productId) => {
-    const productById = await Product.findById(productId);
+    const productById = await Product.findOne({
+        _id: productId,
+        isActive: true,
+    });
 
     return productById;
 }
 
 export const updateProductService = async (productId, updateData) => {
     const updatedProduct = await Product.findByIdAndUpdate(
-        productId,
+        {
+            _id: productId,
+            isActive: true,
+        },
         updateData,
         {
             new:true,
@@ -31,7 +39,15 @@ export const updateProductService = async (productId, updateData) => {
 }
 
 export const deleteProductService = async (productId) => {
-  const deletedProduct = await Product.findByIdAndDelete(productId);
+  const deletedProduct = await Product.findByIdAndUpdate(
+    productId,
+    {
+        isActive: false,
+    },
+    {
+        new: true,
+    }
+);
 
   return deletedProduct;
 };
