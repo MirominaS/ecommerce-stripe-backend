@@ -8,7 +8,6 @@ const orderSchema = new mongoose.Schema(
       required: true,
     },
 
-    
     orderItems: [
       {
         product: {
@@ -16,48 +15,40 @@ const orderSchema = new mongoose.Schema(
           ref: "Product",
           required: true,
         },
-        
+
         title: {
           type: String,
           required: true,
         },
-        
+
         price: {
           type: Number,
           required: true,
         },
-        
+
         quantity: {
           type: Number,
           required: true,
         },
-
       },
     ],
-    
+
     totalPrice: {
       type: Number,
       required: true,
     },
-    
-    paymentSessionId: {
-      type: String,
-      required: true,
-      unique: true,
+
+    payment: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Payment",
     },
-    
-    paymentStatus: {
-      type: String,
-      enum: ["pending", "paid"],
-      default: "pending",
-    },
-    
+
     orderStatus: {
       type: String,
       enum: ["processing", "shipped", "delivered"],
       default: "processing",
     },
-    
+
     isActive: {
       type: Boolean,
       default: true,
