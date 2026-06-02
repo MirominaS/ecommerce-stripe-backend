@@ -26,21 +26,27 @@ export const createOrderService = async (userId,items,sessionId) => {
         paymentSessionId: sessionId,
         paymentStatus: "paid",
     })
+    
+    console.log("CREATED ORDER:", order);
     return order
 }
 
 export const getMyOrderService = async (userId) => {
     const orders = await Order.find({
         user: userId,
+        isActive: true,
     }).sort({
         createdAt: -1,
     })
+    console.log("FOUND ORDERS:", orders);
 
     return orders;
 }
 
 export const getAllOrdersService = async () => {
-    const orders = await Order.find()
+    const orders = await Order.find({
+        isActive: true,
+    })
       .populate("user", "name email")
       .sort({
         createdAt: -1,
@@ -49,8 +55,11 @@ export const getAllOrdersService = async () => {
     return orders;
   };
 
-  export const updateOrderStatusService = async (orderId, status) => {
-    const order = await Order.findById(orderId);
+export const updateOrderStatusService = async (orderId, status) => {
+    const order = await Order.findOne({
+        _id: orderId,
+        isActive: true,
+    });
 
     if(!order){
         throw new Error("Order not found")
@@ -59,4 +68,20 @@ export const getAllOrdersService = async () => {
     order.orderStatus = status;
     await order.save()
     return order;
-  }
+}
+
+export const deleteOrderService = async (orderId) => {
+    const deletedOrder = await Order.findOneAndUpdate(
+        {
+            _id: orderId,
+            isActive: true,
+        },
+        {
+            isActive: false,
+        },
+        {
+            new: true,
+        }
+    );
+    return deletedOrder;
+}

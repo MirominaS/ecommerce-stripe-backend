@@ -31,6 +31,7 @@ const orderSchema = new mongoose.Schema(
           type: Number,
           required: true,
         },
+
       },
     ],
     
@@ -50,11 +51,16 @@ const orderSchema = new mongoose.Schema(
       enum: ["pending", "paid"],
       default: "pending",
     },
-
+    
     orderStatus: {
       type: String,
       enum: ["processing", "shipped", "delivered"],
       default: "processing",
+    },
+    
+    isActive: {
+      type: Boolean,
+      default: true,
     },
   },
   {
