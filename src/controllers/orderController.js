@@ -38,11 +38,39 @@ export const getMyOrders = async(req,res) => {
 
 export const getAllOrders = async (req,res) => {
     try {
-        const orders = await getAllOrdersService()
+         // pagination query
+    const pageRaw = Number(req.query.page ?? 1);
+    const limitRaw = Number(req.query.limit ?? 10);
+
+    // validate pagination values
+    const page =
+      Number.isFinite(pageRaw) && pageRaw > 0
+        ? Math.floor(pageRaw)
+        : 1;
+
+    const limit =
+      Number.isFinite(limitRaw) && limitRaw > 0
+        ? Math.floor(limitRaw)
+        : 10;
+
+    // skip
+    const skip = (page - 1) * limit;
+
+    // filters
+    const status = req.query.status || "";
+    const search = req.query.search || "";
+
+        const data = await getAllOrdersService(
+            page,
+            limit,
+            skip,
+            status,
+            search,
+        )
 
         res.status(200).json({
             success:true,
-            orders,
+            ...data,
         })
     } catch (error) {
         console.log(error)

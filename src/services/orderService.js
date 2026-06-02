@@ -43,27 +43,81 @@ export const getMyOrderService = async (userId) => {
   return orders;
 };
 
-export const getAllOrdersService = async () => {
-  const orders = await Order.find({
+export const getAllOrdersService = async ({
+  page,
+  limit,
+  skip,
+  status,
+  search,
+}) => {
+  const query = {
     isActive: true,
-  })
+  };
+
+  if (status) {
+    query.orderStatus = status;
+  }
+
+  // find orders
+  let ordersQuery = Order.find(query)
     .populate("user", "name email")
     .populate("payment")
     .sort({
       createdAt: -1,
     });
 
-  return orders;
+  // search by customer name/email
+  if (search) {
+    ordersQuery = ordersQuery.populate({
+      path: "user",
+      match: {
+        $or: [
+          {
+            name: {
+              $regex: search,
+              $options: "i",
+            },
+          },
+          {
+            email: {
+              $regex: search,
+              $options: "i",
+            },
+          },
+        ],
+      },
+    });
+  }
+
+  const orders = await ordersQuery.skip(skip).limit(limit);
+
+  // remove unmatched populated users
+  const filteredOrders = orders.filter((order) => order.user !== null);
+
+  // total count
+  const totalOrders = await Order.countDocuments(query);
+
+  const totalPages = Math.ceil(totalOrders / limit);
+
+  return {
+    orders: filteredOrders,
+    pagination: {
+      page,
+      limit,
+      totalOrders,
+      totalPages,
+    },
+  };
 };
 
 export const updateOrderStatusService = async (orderId, status) => {
-    const validStatuses = ["processing", "shipped","delivered", "cancelled"]
+  const validStatuses = ["processing", "shipped", "delivered", "cancelled"];
 
-    if(!validStatuses.includes(status)) {
-        throw new Error("Invalid order status")
-    }
+  if (!validStatuses.includes(status)) {
+    throw new Error("Invalid order status");
+  }
 
-    const order = await Order.findOne({
+  const order = await Order.findOne({
     _id: orderId,
     isActive: true,
   });
