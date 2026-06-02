@@ -26,12 +26,19 @@ export const registerUserService = async ({
 export const loginUerService = async (email, password) => {
     const user = await User.findOne({
       email,
-      isActive: true,
+      // isActive: true,
     })
 
     if (!user) {
         throw new Error("Invalid email or password");
     }
+
+      if (!user.isActive) {
+    throw new Error(
+      "User account disabled"
+    );
+  }
+
 
     const isPasswordMatched = await bcrypt.compare(
         password,

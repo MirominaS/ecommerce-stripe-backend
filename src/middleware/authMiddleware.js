@@ -24,20 +24,20 @@ export const protect = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     const user = await User.findById(decoded.id).select("-password");
-
-    if (!user.isActive) {
-      return res.status(401).json({
-        success: false,
-        message: "User account disabled",
-      });
-    }
-
+    
     if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: "User not found",
-      });
+        return res.status(401).json({
+            success: false,
+            message: "User not found",
+        });
     }
+    
+        if (!user.isActive) {
+          return res.status(401).json({
+            success: false,
+            message: "User account disabled",
+          });
+        }
     //attach user to request
     req.user = user;
     next();
