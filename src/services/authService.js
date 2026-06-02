@@ -24,7 +24,10 @@ export const registerUserService = async ({
 };
 
 export const loginUerService = async (email, password) => {
-    const user = await User.findOne({email})
+    const user = await User.findOne({
+      email,
+      isActive: true,
+    })
 
     if (!user) {
         throw new Error("Invalid email or password");
@@ -40,4 +43,17 @@ export const loginUerService = async (email, password) => {
     }
 
     return user;
+}
+
+export const deleteUserService = async (userId) => {
+  const deletedUser = await User.findByIdAndUpdate(
+    userId,
+    {
+      isActive: false,
+    },
+    {
+      new: true,
+    }
+  )
+  return deletedUser;
 }
