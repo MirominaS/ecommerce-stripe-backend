@@ -54,6 +54,7 @@ export const getMyOrderService = async (userId) => {
     user: userId,
     isActive: true,
   })
+    .populate("user", "name email")
     .populate("payment")
     .sort({
       createdAt: -1,
