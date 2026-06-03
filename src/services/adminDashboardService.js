@@ -22,6 +22,19 @@ export const getSummaryService = async () => {
     paymentStatus: "paid",
   });
 
+  const lowStockProducts = await Product.countDocuments({
+    isActive: true,
+    stock: { $lte: 5 },
+  });
+
+  const lowStockItems = await Product.find({
+    isActive: true,
+    stock: { $lte: 5 },
+  })
+    .select("title stock")
+    .sort({ stock: 1 })
+    .limit(10);
+
   //revenue
   const revenueResult = await Payment.aggregate([
     {
@@ -68,6 +81,8 @@ export const getSummaryService = async () => {
     shippedOrders,
     deliveredOrders,
     cancelledOrders,
+    lowStockProducts,
+    lowStockItems,
   };
 };
 
