@@ -10,6 +10,23 @@ export const createCheckoutSessionService = async (user, items) => {
     throw new Error("Cart is empty");
   }
 
+  //check stock before creating session
+  for (const item of items) {
+    const product = await Product.findById(item._id);
+
+    if (!product) {
+      throw new Error(`${item.title} not found`);
+    }
+
+    if (!product.isActive) {
+      throw new Error(`${product.title} is unavailable`);
+    }
+
+    if (product.stock < item.quantity) {
+      throw new Error(`${product.title} only has ${product.stock} item left`);
+    }
+  }
+
   //convert cart items to stripe line items
   const line_items = items.map((item) => ({
     price_data: {
@@ -24,7 +41,7 @@ export const createCheckoutSessionService = async (user, items) => {
 
   const totalAmount = items.reduce(
     (total, item) => total + item.price * item.quantity,
-      0
+    0,
   );
 
   //create stripe session
@@ -37,14 +54,13 @@ export const createCheckoutSessionService = async (user, items) => {
       "http://localhost:5173/success?session_id={CHECKOUT_SESSION_ID}",
   });
 
-    await Payment.create({
-      user: user._id,
-      sessionId: session.id,
-      amount: totalAmount,
-      paymentStatus: "pending",
-      customerEmail: user.email,
+  await Payment.create({
+    user: user._id,
+    sessionId: session.id,
+    amount: totalAmount,
+    paymentStatus: "pending",
+    customerEmail: user.email,
   });
-
 
   return session;
 };
@@ -92,14 +108,13 @@ export const createBuyNowCheckoutService = async (productId, user) => {
       "http://localhost:5173/success?session_id={CHECKOUT_SESSION_ID}",
   });
 
-    await Payment.create({
-      user: user._id,
-      sessionId: session.id,
-      amount: product.price,
-      paymentStatus: "pending",
-      customerEmail: user.email,
+  await Payment.create({
+    user: user._id,
+    sessionId: session.id,
+    amount: product.price,
+    paymentStatus: "pending",
+    customerEmail: user.email,
   });
-
 
   return session;
 };

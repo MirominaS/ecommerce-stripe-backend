@@ -78,13 +78,23 @@ export const getProductService = async ({
     .skip(skip)
     .limit(limit);
 
+  const productsWithStatus = products.map((product) => ({
+    ...product.toObject(),
+    stockStatus:
+      product.stock === 0
+        ? "Out of Stock"
+        : product.stock <= 5
+          ? "Low Stock"
+          : "In Stock",
+  }));
+
   // total count
   const totalProducts = await Product.countDocuments(query);
 
   const totalPages = Math.ceil(totalProducts / limit);
 
   return {
-    products,
+    products: productsWithStatus,
     pagination: {
       page,
       limit,

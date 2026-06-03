@@ -1,8 +1,28 @@
 import Order from "../models/Order.js";
+import Product from "../models/Product.js";
 
 export const createOrderService = async (userId, items) => {
   if (!items || items.length === 0) {
     throw new Error("Cart is empty");
+  }
+  //check stock and reduce stock
+  for(const item of items) {
+    const product = await Product.findById(item._id);
+
+    if(!product) {
+      throw new Error(`${item.title} not found`);
+    }
+
+    if(!product.isActive) {
+      throw new Error(`${product.title} is unavailable`);
+    }
+
+    if(product.stock < item.quantity) {
+      throw new Error(`${product.title} only has ${product.stock} item left`)
+    }
+
+    product.stock -= item.quantity;
+    await product.save()
   }
 
   //prepare order items
@@ -124,6 +144,19 @@ export const updateOrderStatusService = async (orderId, status) => {
 
   if (!order) {
     throw new Error("Order not found");
+  }
+
+  if(status ==="cancelled" && order.orderStatus !== "cancelled") {
+    for (const item of order.orderItems) {
+      await Product.findByIdAndUpdate(
+        item.product,
+        {
+          $inc: {
+            stock: item.quantity,
+          },
+        },
+      );
+    }
   }
 
   order.orderStatus = status;
