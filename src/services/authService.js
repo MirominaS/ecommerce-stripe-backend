@@ -1,11 +1,7 @@
 import bcrypt from "bcryptjs";
 import User from "../models/User.js";
 
-export const registerUserService = async ({
-  name,
-  email,
-  password,
-}) => {
+export const registerUserService = async ({ name, email, password }) => {
   const existingUser = await User.findOne({ email });
 
   if (existingUser) {
@@ -24,43 +20,114 @@ export const registerUserService = async ({
 };
 
 export const loginUerService = async (email, password) => {
-    const user = await User.findOne({
-      email,
-      // isActive: true,
-    })
+  const user = await User.findOne({
+    email,
+    // isActive: true,
+  });
 
-    if (!user) {
-        throw new Error("Invalid email or password");
-    }
-
-      if (!user.isActive) {
-    throw new Error(
-      "User account disabled"
-    );
+  if (!user) {
+    throw new Error("Invalid email or password");
   }
 
+  if (!user.isActive) {
+    throw new Error("User account disabled");
+  }
 
-    const isPasswordMatched = await bcrypt.compare(
-        password,
-        user.password
-    );
+  const isPasswordMatched = await bcrypt.compare(password, user.password);
 
-    if (!isPasswordMatched) {
-        throw new Error("Invalid email or password");
+  if (!isPasswordMatched) {
+    throw new Error("Invalid email or password");
+  }
+
+  return user;
+};
+
+export const getAllUsersService = async ({ page, limit, skip, search }) => {
+  const query = {};
+
+  if (search) {
+    query.$or = [
+      {
+        name: {
+          $regex: search,
+          $options: "i",
+        },
+      },
+      {
+        email: {
+          $regex: search,
+          $options: "i",
+        },
+      },
+    ];
+  }
+
+  const users = await User.find(query)
+    .select("-password")
+    .skip(skip)
+    .limit(limit)
+    .sort({ createdAt: -1 });
+
+  const totalUsers = await User.countDocuments(query);
+
+  return {
+    users,
+    pagination: {
+      page,
+      limit,
+      totalUsers,
+      totalPages: Math.ceil(totalUsers / limit),
+    },
+  };
+};
+
+export const getUserByIdService = async (userId) => {
+  return await User.findById(userId).select("-password");
+};
+
+export const updateUserService = async (userId, updateData) => {
+  const user = await User.findById(userId);
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  if (updateData.email) {
+    const existingUser = await User.findOne({
+      email: updateData.email,
+      _id: { $ne: userId },
+    });
+
+    if (existingUser) {
+      throw new Error("Email already exists");
     }
+  }
 
-    return user;
-}
+  user.name = updateData.name ?? user.name;
 
-export const deleteUserService = async (userId) => {
-  const deletedUser = await User.findByIdAndUpdate(
+  user.email = updateData.email ?? user.email;
+
+  user.role = updateData.role ?? user.role;
+
+  user.isActive = updateData.isActive ?? user.isActive;
+
+  await user.save();
+
+  return user;
+};
+
+export const deleteUserService = async (userId, currentAdminId) => {
+  if (userId.toString() === currentAdminId.toString()) {
+    throw new Error("You cannot deactivate your own account");
+  }
+
+  return await User.findByIdAndUpdate(
     userId,
     {
       isActive: false,
     },
     {
       new: true,
-    }
-  )
-  return deletedUser;
-}
+    },
+  );
+};
