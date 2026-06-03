@@ -23,14 +23,15 @@ export const getSummary = async (req, res) => {
 
 export const getAnalytics = async (req, res) => {
   try {
-    const analytics = await getAnalyticsService();
+    const { date, month } = req.query;
+
+    const analytics = await getAnalyticsService({ date, month });
 
     res.status(200).json({
       success: true,
       analytics,
     });
   } catch (error) {
-    console.log(error);
     res.status(500).json({
       success: false,
       message: error.message,
