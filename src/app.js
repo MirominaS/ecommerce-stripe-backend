@@ -5,6 +5,7 @@ import productRoutes from "./routes/productRoutes.js"
 import authRoutes from "./routes/authRoutes.js"
 import orderRoutes from "./routes/orderRoutes.js";
 import adminDashboardRoutes from "./routes/adminDashboardRoutes.js"
+import emailRoutes from './routes/emailRoutes.js'
 const app = express();
 
 app.use(cors());
@@ -24,6 +25,8 @@ app.use("/api/orders", orderRoutes);
 
 //dashboard
 app.use("/api/admin", adminDashboardRoutes)
+
+app.use('/api/email', emailRoutes);
 
 app.get("/", (req,res) => {
     res.send("Server is running")
