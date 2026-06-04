@@ -18,6 +18,16 @@ const userSchema = new mongoose.Schema(
       required: true,
     },
 
+      otp: {
+      type: String,
+      default: null,
+    },
+
+    otpExpiresAt: {
+      type: Date,
+      default: null,
+    },
+
     role: {
       type: String,
       enum: ["customer", "admin"],
