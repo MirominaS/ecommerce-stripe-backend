@@ -41,6 +41,8 @@ const paymentSchema = new mongoose.Schema(
   },
 );
 
+paymentSchema.index({ createdAt: -1 });
+paymentSchema.index({ createdAt: -1, paymentStatus: 1 });
 const Payment = mongoose.model("Payment", paymentSchema);
 
 export default Payment;
