@@ -45,7 +45,7 @@ const orderSchema = new mongoose.Schema(
 
     orderStatus: {
       type: String,
-      enum: ["processing", "shipped", "delivered", "cancelled"],
+      enum: ["processing", "shipped", "delivered", "cancelled", "refunded"],
       default: "processing",
     },
 
@@ -59,6 +59,8 @@ const orderSchema = new mongoose.Schema(
   },
 );
 
+orderSchema.index({ createdAt: -1 });
+orderSchema.index({ createdAt: -1, orderStatus: 1 });
 const Order = mongoose.model("Order", orderSchema);
 
 export default Order;
