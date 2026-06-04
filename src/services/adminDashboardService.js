@@ -86,39 +86,70 @@ export const getSummaryService = async () => {
   };
 };
 
-export const getAnalyticsService = async ({ date, month }) => {
-  // Reusable date filter builder
+export const getAnalyticsService = async ({ filter, fromDate, toDate }) => {
   const buildDateFilter = () => {
-    const filter = {};
+    const filterObj = {};
+    const now = new Date();
 
-    // Daily filter
-    if (date) {
-      const startDate = new Date(date);
+    let startDate;
+    let endDate;
 
-      const endDate = new Date(date);
-      endDate.setDate(endDate.getDate() + 1);
+    switch (filter) {
+      case "today":
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-      filter.createdAt = {
+        endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + 1);
+        break;
+
+      case "week":
+        startDate = new Date(now);
+        startDate.setDate(now.getDate() - now.getDay());
+        startDate.setHours(0, 0, 0, 0);
+
+        endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + 7);
+        break;
+
+      case "month":
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        break;
+
+      case "year":
+        startDate = new Date(now.getFullYear(), 0, 1);
+
+        endDate = new Date(now.getFullYear() + 1, 0, 1);
+        break;
+
+      case "lastyear":
+        startDate = new Date(now.getFullYear() - 1, 0, 1);
+
+        endDate = new Date(now.getFullYear(), 0, 1);
+        break;
+
+      case "custom":
+        if (fromDate && toDate) {
+          startDate = new Date(fromDate);
+
+          endDate = new Date(toDate);
+          endDate.setDate(endDate.getDate() + 1);
+        }
+        break;
+
+      default:
+        return {};
+    }
+
+    if (startDate && endDate) {
+      filterObj.createdAt = {
         $gte: startDate,
         $lt: endDate,
       };
     }
 
-    // Monthly filter
-    if (month) {
-      const [year, monthValue] = month.split("-");
-
-      const startDate = new Date(year, monthValue - 1, 1);
-
-      const endDate = new Date(year, monthValue, 1);
-
-      filter.createdAt = {
-        $gte: startDate,
-        $lt: endDate,
-      };
-    }
-
-    return filter;
+    return filterObj;
   };
 
   const orderMatchStage = buildDateFilter();
