@@ -23,9 +23,9 @@ export const getSummary = async (req, res) => {
 
 export const getAnalytics = async (req, res) => {
   try {
-    const { date, month } = req.query;
+    const { filter = "today", fromDate, toDate } = req.query;
 
-    const analytics = await getAnalyticsService({ date, month });
+    const analytics = await getAnalyticsService({ filter, fromDate, toDate });
 
     res.status(200).json({
       success: true,
