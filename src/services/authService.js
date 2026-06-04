@@ -92,24 +92,13 @@ export const updateUserService = async (userId, updateData) => {
     throw new Error("User not found");
   }
 
-  if (updateData.email) {
-    const existingUser = await User.findOne({
-      email: updateData.email,
-      _id: { $ne: userId },
-    });
-
-    if (existingUser) {
-      throw new Error("Email already exists");
-    }
+  if (updateData.role !== undefined) {
+    user.role = updateData.role;
   }
 
-  user.name = updateData.name ?? user.name;
-
-  user.email = updateData.email ?? user.email;
-
-  user.role = updateData.role ?? user.role;
-
-  user.isActive = updateData.isActive ?? user.isActive;
+  if (updateData.isActive !== undefined) {
+    user.isActive = updateData.isActive;
+  }
 
   await user.save();
 
