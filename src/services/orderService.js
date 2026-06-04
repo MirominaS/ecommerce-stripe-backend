@@ -6,23 +6,23 @@ export const createOrderService = async (userId, items) => {
     throw new Error("Cart is empty");
   }
   //check stock and reduce stock
-  for(const item of items) {
+  for (const item of items) {
     const product = await Product.findById(item._id);
 
-    if(!product) {
+    if (!product) {
       throw new Error(`${item.title} not found`);
     }
 
-    if(!product.isActive) {
+    if (!product.isActive) {
       throw new Error(`${product.title} is unavailable`);
     }
 
-    if(product.stock < item.quantity) {
-      throw new Error(`${product.title} only has ${product.stock} item left`)
+    if (product.stock < item.quantity) {
+      throw new Error(`${product.title} only has ${product.stock} item left`);
     }
 
     product.stock -= item.quantity;
-    await product.save()
+    await product.save();
   }
 
   //prepare order items
@@ -131,13 +131,7 @@ export const getAllOrdersService = async ({
   };
 };
 
-export const updateOrderStatusService = async (orderId, status) => {
-  const validStatuses = ["processing", "shipped", "delivered", "cancelled"];
-
-  if (!validStatuses.includes(status)) {
-    throw new Error("Invalid order status");
-  }
-
+export const updateOrderStatusService = async (orderId, newStatus) => {
   const order = await Order.findOne({
     _id: orderId,
     isActive: true,
@@ -147,20 +141,31 @@ export const updateOrderStatusService = async (orderId, status) => {
     throw new Error("Order not found");
   }
 
-  if(status ==="cancelled" && order.orderStatus !== "cancelled") {
+  const statusFlow = {
+    processing: ["shipped", "cancelled"],
+    shipped: ["delivered"],
+    delivered: ["refunded"],
+    cancelled: [],
+    refunded: [],
+  };
+
+  const currentStatus = order.orderStatus;
+
+  if (!statusFlow[currentStatus].includes(newStatus)) {
+    throw new Error(`Cannot move order from ${currentStatus} to ${newStatus}`);
+  }
+
+  if (newStatus === "cancelled") {
     for (const item of order.orderItems) {
-      await Product.findByIdAndUpdate(
-        item.product,
-        {
-          $inc: {
-            stock: item.quantity,
-          },
+      await Product.findByIdAndUpdate(item.product, {
+        $inc: {
+          stock: item.quantity,
         },
-      );
+      });
     }
   }
 
-  order.orderStatus = status;
+  order.orderStatus = newStatus;
   await order.save();
   return order;
 };
