@@ -1,6 +1,9 @@
 import { Parser } from "json2csv";
 import Order from "../models/Order.js";
 import Product from "../models/Product.js";
+import User from "../models/User.js";
+import { customerOrderTemplate } from "../utils/email/templates/orderEmail.js";
+import sendEmail from "../utils/email/sendEmail.js";
 
 export const createOrderService = async (userId, items) => {
   if (!items || items.length === 0) {
@@ -45,6 +48,23 @@ export const createOrderService = async (userId, items) => {
     orderItems,
     totalPrice,
   });
+
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new Error("User not found");
+  }
+  const emailHtml = customerOrderTemplate(order);
+  try {
+    await sendEmail({
+      to: user.email,
+      subject: `Order confirmation - ${order._id}`,
+      html: emailHtml,
+      text: `Order ${order._id} placed successfully`,
+      cc: process.env.ADMIN_EMAIL,
+    });
+  } catch (error) {
+    console.error("Order email failed:", error.message);
+  }
 
   console.log("CREATED ORDER:", order);
   return order;
