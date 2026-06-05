@@ -8,6 +8,15 @@ export const createProductService = async (productData) => {
   if (productData.stock < 0) {
     throw new Error("Stock cannot be negative");
   }
+
+  const existingProduct = await Product.findOne({
+    sku: productData.sku,
+  });
+
+  if (existingProduct) {
+    throw new Error("SKU already exists");
+  }
+
   const product = await Product.create(productData);
 
   return product;
@@ -114,6 +123,16 @@ export const getProductByIdService = async (productId) => {
 };
 
 export const updateProductService = async (productId, updateData) => {
+  if (updateData.sku) {
+    const existingProduct = await Product.findOne({
+      sku: updateData.sku,
+      _id: { $ne: productId },
+    });
+
+    if (existingProduct) {
+      throw new Error("SKU already exists");
+    }
+  }
   // validations
   if (updateData.price !== undefined && updateData.price < 0) {
     throw new Error("Price cannot be negative");
@@ -149,4 +168,51 @@ export const deleteProductService = async (productId) => {
   );
 
   return deletedProduct;
+};
+
+export const importProductService = async (products) => {
+  let created = 0;
+  let updated = 0;
+  let skipped = 0;
+
+  for (const product of products) {
+    const existingProduct = await Product.findOne({
+      sku: product.sku,
+    });
+
+    if (existingProduct) {
+      const hasChanges =
+        existingProduct.title !== product.title ||
+        existingProduct.description !== product.description ||
+        existingProduct.price !== Number(product.price) ||
+        existingProduct.category !== product.category ||
+        existingProduct.stock !== Number(product.stock);
+
+      if (hasChanges) {
+        await Product.findOneAndUpdate(
+          { sku: product.sku },
+          {
+            title: product.title,
+            description: product.description,
+            price: product.price,
+            category: product.category,
+            stock: product.stock,
+          }
+        );
+
+        updated++;
+      } else {
+        skipped++;
+      }
+    } else {
+      await Product.create(product);
+      created++;
+    }
+  }
+
+  return {
+    created,
+    updated,
+    skipped,
+  };
 };
