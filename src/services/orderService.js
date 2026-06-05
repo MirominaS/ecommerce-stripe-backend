@@ -1,3 +1,4 @@
+import { Parser } from "json2csv";
 import Order from "../models/Order.js";
 import Product from "../models/Product.js";
 
@@ -184,4 +185,56 @@ export const deleteOrderService = async (orderId) => {
     },
   );
   return deletedOrder;
+};
+
+export const exportOrdersService = async ({ from, to, status }) => {
+  if (!from || !to) {
+    throw new Error("From date and To date are required");
+  }
+
+  const start = new Date(from);
+  const end = new Date(to);
+
+  // Validate date format
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+    throw new Error("Invalid date range");
+  }
+
+  // Validate range
+  const days = (end - start) / (1000 * 60 * 60 * 24);
+
+  if (days > 90) {
+    throw new Error("Maximum export range is 90 days");
+  }
+
+  if (start > end) {
+    throw new Error("From date cannot be greater than To date");
+  }
+
+  const query = {
+    isActive: true,
+    createdAt: {
+      $gte: start,
+      $lte: end,
+    },
+  };
+
+  if (status) {
+    query.orderStatus = status;
+  }
+  const orders = await Order.find(query).populate("user", "name email").lean();
+
+  const rows = orders.map((order) => ({
+    orderId: order._id,
+    customer: order.user?.name,
+    email: order.user?.email,
+    totalPrice: order.totalPrice,
+    status: order.orderStatus,
+    items: order.orderItems.length,
+    createdAt: order.createdAt,
+  }));
+
+  const parser = new Parser();
+
+  return parser.parse(rows);
 };
