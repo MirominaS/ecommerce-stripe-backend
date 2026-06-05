@@ -3,6 +3,7 @@ import {
   deleteProductService,
   getProductByIdService,
   getProductService,
+  importProductService,
   updateProductService,
 } from "../services/productService.js";
 
@@ -124,6 +125,24 @@ export const deleteProduct = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Product deleted successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const importProducts = async (req, res) => {
+  try {
+    const { products } = req.body;
+
+    const result = await importProductService(products);
+
+    res.status(200).json({
+      success: true,
+      ...result,
     });
   } catch (error) {
     res.status(500).json({
