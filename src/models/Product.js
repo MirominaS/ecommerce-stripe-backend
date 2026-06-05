@@ -2,6 +2,13 @@ import mongoose from "mongoose";
 
 const productSchema = new mongoose.Schema(
   {
+    sku: {
+      type: String,
+      required: true,
+      unique: true,
+      trim:true,
+    },
+
     title: {
       type: String,
       required: true,
@@ -24,7 +31,7 @@ const productSchema = new mongoose.Schema(
 
     category: {
       type: String,
-      // required: true,
+      required: true,
     },
 
     stock: {
