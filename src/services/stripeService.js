@@ -1,9 +1,9 @@
-import stripe from "../config/stripe.js";
-// import Cart from "../models/Cart.js";
 import Payment from "../models/Payment.js";
 import Order from "../models/Order.js";
 import { createOrderService } from "./orderService.js";
 import Product from "../models/Product.js";
+import { getConfig } from "../utils/getConfig.js";
+import Stripe from "stripe";
 
 export const createCheckoutSessionService = async (user, items) => {
   if (!items || items.length === 0) {
@@ -26,6 +26,8 @@ export const createCheckoutSessionService = async (user, items) => {
       throw new Error(`${product.title} only has ${product.stock} item left`);
     }
   }
+
+  const stripe = new Stripe(await getConfig("STRIPE_SECRET_KEY"));
 
   //convert cart items to stripe line items
   const line_items = items.map((item) => ({
@@ -66,6 +68,8 @@ export const createCheckoutSessionService = async (user, items) => {
 };
 
 export const paymentSuccessService = async (sessionId) => {
+  
+  const stripe = new Stripe(await getConfig("STRIPE_SECRET_KEY"));
   //verify stripe session
   const session = await stripe.checkout.sessions.retrieve(sessionId);
 
@@ -83,6 +87,8 @@ export const createBuyNowCheckoutService = async (productId, user) => {
   if (!product) {
     throw new Error("Product not found");
   }
+
+  const stripe = new Stripe(await getConfig("STRIPE_SECRET_KEY"));
 
   const session = await stripe.checkout.sessions.create({
     ui_mode: "embedded_page",
