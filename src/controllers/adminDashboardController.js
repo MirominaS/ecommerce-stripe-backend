@@ -3,6 +3,8 @@ import {
   getSummaryService,
 } from "../services/adminDashboardService.js";
 import Payment from "../models/Payment.js";
+import AdminSetting from "../models/AdminSetting.js";
+import { getConfig } from "../utils/getConfig.js";
 
 export const getSummary = async (req, res) => {
   try {
@@ -121,6 +123,90 @@ export const getAllPayments = async (req, res) => {
     });
   } catch (error) {
     console.log(error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const getSetting = async (req,res) => {
+  try {
+    const settings = await AdminSetting.find()
+    const result = {};
+
+    settings.forEach((item) => {
+      result[item.key] = item.value;
+    })
+
+    res.status(200).json({
+      success: true,
+      settings: result,
+    })
+  } catch (error){
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    })
+  }
+}
+
+
+
+export const updateSetting = async (req, res) => {
+  try {
+    const {key, value} = req.body;
+    console.log("BODY:", req.body);
+    if(!key) {
+      return res.status(400).json({
+        success: false,
+        message: "Key is required"
+      })
+    }
+
+    const settings = await AdminSetting.findOneAndUpdate(
+      {key},
+      {value},
+      {
+        upsert: true,
+        returnDocument: "after",
+      }
+    )
+    res.status(200).json({
+      success: true,
+      settings,
+    })
+  } catch (error) {
+    console.log("🔥 UPDATE SETTING ERROR FULL:", error);
+  console.log("STACK:", error.stack);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    })
+  }
+}
+
+export const getStripeConfig = async (req, res) => {
+  try {
+    const settings = await AdminSetting.findOne();
+
+    const publishableKey = await getConfig("VITE_STRIPE_PUBLISHABLE_KEY")
+
+    if (!publishableKey) {
+      return (
+        res,
+        status(500).json({
+          success: false,
+          message: "Stripe publishable key not configured",
+        })
+      );
+    }
+
+    res.status(200).json({
+      success: true,
+      publishableKey,
+    });
+  } catch (error) {
     res.status(500).json({
       success: false,
       message: error.message,
