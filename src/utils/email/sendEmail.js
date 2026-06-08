@@ -1,18 +1,30 @@
+import { getConfig } from "../getConfig.js";
+
 const sendEmail = async ({ to, subject, html, text, cc }) => {
   try {
+    const apiUrl = await getConfig("EMAIL_API_URL");
+    const apiKey = await getConfig("EMAIL_API_KEY");
+    const emailFrom = await getConfig( "EMAIL_FROM");
+
+  console.log({
+  apiUrl,
+  apiKey: apiKey ? "FOUND" : "MISSING",
+  emailFrom,
+});
+
     if (!to || !subject || !html) {
       throw new Error("Missing email fields");
     }
 
-    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+    const response = await fetch(apiUrl, {
       method: "POST",
       headers: {
-        "api-key": process.env.BREVO_API_KEY,
+        "api-key": apiKey,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
         sender: {
-          email: process.env.EMAIL_FROM,
+          email: emailFrom,
         },
         to: [
           {
