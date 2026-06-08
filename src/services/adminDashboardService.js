@@ -52,7 +52,7 @@ export const getSummaryService = async () => {
     },
   ]);
 
-  const totalRevenue = revenueResult[0]?.totalRevenue || 0;
+  const totalRevenue = Number(revenueResult[0]?.totalRevenue || 0).toFixed(2);
 
   //order statuses
   const processingOrders = await Order.countDocuments({
