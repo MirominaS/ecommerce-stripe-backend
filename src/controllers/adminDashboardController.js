@@ -130,67 +130,68 @@ export const getAllPayments = async (req, res) => {
   }
 };
 
-export const getSetting = async (req,res) => {
+export const getSetting = async (req, res) => {
   try {
-    const settings = await AdminSetting.find()
+    const settings = await AdminSetting.find();
     const result = {};
 
     settings.forEach((item) => {
       result[item.key] = item.value;
-    })
+    });
 
     res.status(200).json({
       success: true,
       settings: result,
-    })
-  } catch (error){
+    });
+  } catch (error) {
     res.status(500).json({
       success: false,
       message: error.message,
-    })
+    });
   }
-}
-
-
+};
 
 export const updateSetting = async (req, res) => {
   try {
-    const {key, value} = req.body;
+    const {config} = req.body;
     console.log("BODY:", req.body);
-    if(!key) {
+
+    if (!config || typeof config !== "object") {
       return res.status(400).json({
         success: false,
-        message: "Key is required"
-      })
+        message: "Config object is required",
+      });
     }
 
-    const settings = await AdminSetting.findOneAndUpdate(
-      {key},
-      {value},
-      {
+    const operations = Object.entries(config).map(([key, value]) => ({
+      updateOne: {
+        filter: {key},
+        update: {value},
         upsert: true,
-        returnDocument: "after",
-      }
-    )
+      },
+    }))
+
+    await AdminSetting.bulkWrite(operations);
+
     res.status(200).json({
       success: true,
-      settings,
-    })
+      message: "Setting updated successfully"
+    });
   } catch (error) {
-    console.log("🔥 UPDATE SETTING ERROR FULL:", error);
-  console.log("STACK:", error.stack);
+    console.log("UPDATE SETTING ERROR FULL:", error);
+   
     res.status(500).json({
       success: false,
       message: error.message,
-    })
+    });
   }
-}
+};
 
 export const getStripeConfig = async (req, res) => {
   try {
     const settings = await AdminSetting.findOne();
 
-    const publishableKey = await getConfig("VITE_STRIPE_PUBLISHABLE_KEY")
+    const publishableKey = await getConfig("VITE_STRIPE_PUBLISHABLE_KEY");
 
     if (!publishableKey) {
       return (
