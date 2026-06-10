@@ -7,6 +7,7 @@ import orderRoutes from "./routes/orderRoutes.js";
 import adminDashboardRoutes from "./routes/adminDashboardRoutes.js"
 import emailRoutes from './routes/emailRoutes.js'
 import mediaRoutes from './routes/mediaRoutes.js'
+import folderRoutes from "./routes/folderRoutes.js";
 
 const app = express();
 
@@ -31,6 +32,8 @@ app.use("/api/admin", adminDashboardRoutes)
 app.use('/api/email', emailRoutes);
 
 app.use("/api/media",mediaRoutes)
+
+app.use("/api/folders", folderRoutes);
 
 app.get("/", (req,res) => {
     res.send("Server is running")
