@@ -41,7 +41,7 @@ export const uploadToR2 = async (file, folder) => {
 
 export const deleteFromR2 = async (key) => {
   console.log("Deleting key:", key);
-  
+
   const decodedKey = decodeURIComponent(key);
   const result = await s3.send(
     new DeleteObjectCommand({
