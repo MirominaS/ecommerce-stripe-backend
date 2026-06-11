@@ -1,13 +1,10 @@
-import dns from "dns";
-
-dns.setDefaultResultOrder("ipv4first");
 import {
   S3Client,
   PutObjectCommand,
   DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
 
-const s3 = new S3Client({
+export const s3 = new S3Client({
   region: "auto",
   endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
   credentials: {
@@ -19,13 +16,13 @@ const s3 = new S3Client({
 export const uploadToR2 = async (file, folder) => {
   const key = `${folder}/${Date.now()}-${file.originalname.replace(/\s+/g, "-")}`;
   console.log({
-    bucket: process.env.R2_PUBLIC_BUCKET,
-    bucketType: typeof process.env.R2_PUBLIC_BUCKET,
-    bucketLength: process.env.R2_PUBLIC_BUCKET?.length,
+    bucket: process.env.R2_BUCKET,
+    bucketType: typeof process.env.R2_BUCKET,
+    bucketLength: process.env.R2_BUCKET?.length,
   });
 
   const params = {
-    Bucket: process.env.R2_PUBLIC_BUCKET,
+    Bucket: process.env.R2_BUCKET,
     Key: key,
     Body: file.buffer,
     ContentType: file.mimetype,
@@ -45,7 +42,7 @@ export const deleteFromR2 = async (key) => {
   const decodedKey = decodeURIComponent(key);
   const result = await s3.send(
     new DeleteObjectCommand({
-      Bucket: process.env.R2_PUBLIC_BUCKET,
+      Bucket: process.env.R2_BUCKET,
       Key: decodedKey,
     }),
   );
