@@ -12,6 +12,14 @@ const mediaSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+
+    uploadedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+
+
     folder: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Folder",
@@ -32,6 +40,12 @@ const mediaSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+
+    visibility: {
+      type: String,
+      enum: ["public", "private", "internal"],
+      default: "public",
+    }
   },
   {
     timestamps: true,
