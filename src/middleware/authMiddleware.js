@@ -59,3 +59,26 @@ export const adminOnly = (req, res, next) => {
     });
   }
 };
+
+export const optionalAuth = async (req, res, next) => {
+  try {
+    const auth = req.headers.authorization;
+
+    if (!auth?.startsWith("Bearer ")) {
+      return next();
+    }
+
+    const token = auth.split(" ")[1];
+
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET
+    );
+
+    req.user = await User.findById(decoded.id).select("-password");
+
+    next();
+  } catch (error) {
+    next();
+  }
+};
