@@ -1,4 +1,8 @@
 import Product from "../models/Product.js";
+import Media from "../models/Media.js";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { s3 } from "./mediaService.js";
 
 export const createProductService = async (productData) => {
   if (productData.price < 0) {
@@ -83,19 +87,38 @@ export const getProductService = async ({
 
   // products
   const products = await Product.find(query)
+    .populate("image")
     .sort(sortOption)
     .skip(skip)
     .limit(limit);
 
-  const productsWithStatus = products.map((product) => ({
-    ...product.toObject(),
-    stockStatus:
-      product.stock === 0
-        ? "Out of Stock"
-        : product.stock <= 5
-          ? "Low Stock"
-          : "In Stock",
-  }));
+  const productsWithStatus = await Promise.all(
+    products.map(async (product) => {
+      let imageUrl = null;
+
+      if (product.image?.key) {
+        imageUrl = await getSignedUrl(
+          s3,
+          new GetObjectCommand({
+            Bucket: process.env.R2_BUCKET,
+            Key: product.image.key,
+          }),
+          { expiresIn: 300 },
+        );
+      }
+
+      return {
+        ...product.toObject(),
+        imageUrl,
+        stockStatus:
+          product.stock === 0
+            ? "Out of Stock"
+            : product.stock <= 5
+              ? "Low Stock"
+              : "In Stock",
+      };
+    }),
+  );
 
   // total count
   const totalProducts = await Product.countDocuments(query);
@@ -114,12 +137,28 @@ export const getProductService = async ({
 };
 
 export const getProductByIdService = async (productId) => {
-  const productById = await Product.findOne({
+  const product = await Product.findOne({
     _id: productId,
     isActive: true,
-  });
+  }).populate("image");
 
-  return productById;
+  let imageUrl = null;
+
+  if (product?.image?.key) {
+    imageUrl = await getSignedUrl(
+      s3,
+      new GetObjectCommand({
+        Bucket: process.env.R2_BUCKET,
+        Key: product.image.key,
+      }),
+      { expiresIn: 300 },
+    );
+  }
+
+  return {
+    ...product.toObject(),
+    imageUrl,
+  };
 };
 
 export const updateProductService = async (productId, updateData) => {
@@ -133,7 +172,7 @@ export const updateProductService = async (productId, updateData) => {
       throw new Error("SKU already exists");
     }
   }
-  // validations
+
   if (updateData.price !== undefined && updateData.price < 0) {
     throw new Error("Price cannot be negative");
   }
@@ -152,8 +191,29 @@ export const updateProductService = async (productId, updateData) => {
       new: true,
       runValidators: true,
     },
-  );
-  return updatedProduct;
+  ).populate("image");
+
+  if (!updatedProduct) {
+    return null;
+  }
+
+  let imageUrl = null;
+
+  if (updatedProduct.image?.key) {
+    imageUrl = await getSignedUrl(
+      s3,
+      new GetObjectCommand({
+        Bucket: process.env.R2_BUCKET,
+        Key: updatedProduct.image.key,
+      }),
+      { expiresIn: 300 },
+    );
+  }
+
+  return {
+    ...updatedProduct.toObject(),
+    imageUrl,
+  };
 };
 
 export const deleteProductService = async (productId) => {
@@ -197,7 +257,7 @@ export const importProductService = async (products) => {
             price: product.price,
             category: product.category,
             stock: product.stock,
-          }
+          },
         );
 
         updated++;

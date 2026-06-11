@@ -6,7 +6,7 @@ const productSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
-      trim:true,
+      trim: true,
     },
 
     title: {
@@ -25,7 +25,8 @@ const productSchema = new mongoose.Schema(
     },
 
     image: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Media",
       required: true,
     },
 
@@ -47,7 +48,7 @@ const productSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 const Product = mongoose.model("Product", productSchema);
