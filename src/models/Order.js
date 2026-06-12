@@ -16,10 +16,18 @@ const orderSchema = new mongoose.Schema(
           required: true,
         },
 
+        variant: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "ProductVariant",
+          default: null,
+        },
+
         title: {
           type: String,
           required: true,
         },
+
+        sku: String,
 
         price: {
           type: Number,

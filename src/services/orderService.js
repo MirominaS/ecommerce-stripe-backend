@@ -1,6 +1,8 @@
 import { Parser } from "json2csv";
 import Order from "../models/Order.js";
 import Product from "../models/Product.js";
+import ProductVariant from "../models/ProductVariant.js";
+import Inventory from "../models/Inventory.js";
 import User from "../models/User.js";
 import { customerOrderTemplate } from "../utils/email/templates/orderEmail.js";
 import sendEmail from "../utils/email/sendEmail.js";
@@ -9,64 +11,116 @@ export const createOrderService = async (userId, items) => {
   if (!items || items.length === 0) {
     throw new Error("Cart is empty");
   }
-  //check stock and reduce stock
+
+  const orderItems = [];
+
+  let totalPrice = 0;
+
   for (const item of items) {
-    const product = await Product.findById(item._id);
+    const product = await Product.findOne({
+      _id: item.productId,
+      isActive: true,
+    });
 
     if (!product) {
-      throw new Error(`${item.title} not found`);
+      throw new Error("Product not found");
     }
 
-    if (!product.isActive) {
-      throw new Error(`${product.title} is unavailable`);
+    let price;
+    let sku;
+    let inventory;
+    let variant = null;
+
+    // Variant Product
+    if (product.hasVariants) {
+      if (!item.variantId) {
+        throw new Error(`${product.title} requires a variant`);
+      }
+
+      variant = await ProductVariant.findOne({
+        _id: item.variantId,
+        productId: product._id,
+        isActive: true,
+      });
+
+      if (!variant) {
+        throw new Error("Variant not found");
+      }
+
+      inventory = await Inventory.findOne({
+        variantId: variant._id,
+      });
+
+      if (!inventory) {
+        throw new Error("Inventory not found");
+      }
+
+      price = variant.sellingPrice;
+      sku = variant.sku;
+    }
+    // Single Product
+    else {
+      inventory = await Inventory.findOne({
+        productId: product._id,
+      });
+
+      if (!inventory) {
+        throw new Error("Inventory not found");
+      }
+
+      price = product.sellingPrice;
+      sku = product.sku;
     }
 
-    if (product.stock < item.quantity) {
-      throw new Error(`${product.title} only has ${product.stock} item left`);
+    // Stock Check
+    if (inventory.stock < item.quantity) {
+      throw new Error(
+        `${product.title} only has ${inventory.stock} item(s) left`,
+      );
     }
 
-    product.stock -= item.quantity;
-    await product.save();
+    // Reduce Stock
+    inventory.stock -= item.quantity;
+
+    await inventory.save();
+
+    // Order Item
+    orderItems.push({
+      product: product._id,
+      variant: variant?._id || null,
+      title: product.title,
+      sku,
+      price,
+      quantity: item.quantity,
+    });
+
+    totalPrice += price * item.quantity;
   }
 
-  //prepare order items
-  const orderItems = items.map((item) => ({
-    product: item._id,
-    title: item.title,
-    price: item.price,
-    quantity: item.quantity,
-  }));
-
-  //total
-  const totalPrice = items.reduce(
-    (total, item) => total + item.price * item.quantity,
-    0,
-  );
-  //create order
+  // Create Order
   const order = await Order.create({
     user: userId,
     orderItems,
     totalPrice,
   });
 
+  // Send Email
   const user = await User.findById(userId);
-  if (!user) {
-    throw new Error("User not found");
-  }
-  const emailHtml = customerOrderTemplate(order);
-  try {
-    await sendEmail({
-      to: user.email,
-      subject: `Order confirmation - ${order._id}`,
-      html: emailHtml,
-      text: `Order ${order._id} placed successfully`,
-      cc: process.env.ADMIN_EMAIL,
-    });
-  } catch (error) {
-    console.error("Order email failed:", error.message);
+
+  if (user) {
+    try {
+      await sendEmail({
+        to: user.email,
+        subject: `Order confirmation - ${order._id}`,
+        html: customerOrderTemplate(order),
+        text: `Order ${order._id} placed successfully`,
+        cc: process.env.ADMIN_EMAIL,
+      });
+    } catch (error) {
+      console.error("Order email failed:", error.message);
+    }
   }
 
-  console.log("CREATED ORDER:", order);
   return order;
 };
 
@@ -178,11 +232,29 @@ export const updateOrderStatusService = async (orderId, newStatus) => {
 
   if (newStatus === "cancelled") {
     for (const item of order.orderItems) {
-      await Product.findByIdAndUpdate(item.product, {
-        $inc: {
-          stock: item.quantity,
-        },
-      });
+      if (item.variant) {
+        await Inventory.findOneAndUpdate(
+          {
+            variantId: item.variant,
+          },
+          {
+            $inc: {
+              stock: item.quantity,
+            },
+          },
+        );
+      } else {
+        await Inventory.findOneAndUpdate(
+          {
+            productId: item.product,
+          },
+          {
+            $inc: {
+              stock: item.quantity,
+            },
+          },
+        );
+      }
     }
   }
 
