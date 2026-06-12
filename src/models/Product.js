@@ -2,13 +2,6 @@ import mongoose from "mongoose";
 
 const productSchema = new mongoose.Schema(
   {
-    sku: {
-      type: String,
-      required: true,
-      unique: true,
-      trim: true,
-    },
-
     title: {
       type: String,
       required: true,
@@ -19,15 +12,10 @@ const productSchema = new mongoose.Schema(
       required: true,
     },
 
-    price: {
-      type: Number,
-      required: true,
-    },
-
     image: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Media",
-      required: true,
+      // required: true,
     },
 
     category: {
@@ -35,10 +23,18 @@ const productSchema = new mongoose.Schema(
       required: true,
     },
 
-    stock: {
+    hasVariants: {
+      type: Boolean,
+      default: false,
+    },
+
+    sku: {
+      type: String,
+      trim: true,
+    },
+
+    sellingPrice: {
       type: Number,
-      required: true,
-      default: 0,
     },
 
     isActive: {

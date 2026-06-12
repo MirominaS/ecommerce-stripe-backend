@@ -3,25 +3,52 @@ import Media from "../models/Media.js";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { s3 } from "./mediaService.js";
+import Inventory from "../models/Inventory.js";
+import ProductVariant from "../models/ProductVariant.js";
 
 export const createProductService = async (productData) => {
-  if (productData.price < 0) {
-    throw new Error("Price cannot be negative");
+  // Variant Product Validation
+  if (productData.hasVariants) {
+    if (productData.sku) {
+      throw new Error("Variant products cannot have SKU");
+    }
+
+    if (productData.sellingPrice !== undefined) {
+      throw new Error("Variant products cannot have selling price");
+    }
   }
 
-  if (productData.stock < 0) {
-    throw new Error("Stock cannot be negative");
+  // Single Product Validation
+  if (!productData.hasVariants) {
+    if (!productData.sku) {
+      throw new Error("SKU is required");
+    }
+
+    if (productData.sellingPrice === undefined) {
+      throw new Error("Selling price is required");
+    }
+
+    if (productData.sellingPrice < 0) {
+      throw new Error("Selling price cannot be negative");
+    }
+
+    const existingProduct = await Product.findOne({
+      sku: productData.sku,
+    });
+
+    if (existingProduct) {
+      throw new Error("SKU already exists");
+    }
   }
 
-  const existingProduct = await Product.findOne({
-    sku: productData.sku,
-  });
-
-  if (existingProduct) {
-    throw new Error("SKU already exists");
-  }
-
+  // Create Product
   const product = await Product.create(productData);
+
+  // Create inventory
+  await Inventory.create({
+    productId: product._id,
+    stock: 0,
+  });
 
   return product;
 };
@@ -39,11 +66,6 @@ export const getProductService = async ({
   // base query
   const query = {
     isActive: true,
-
-    price: {
-      $gte: minPrice,
-      $lte: maxPrice,
-    },
   };
 
   // category filter
@@ -69,13 +91,13 @@ export const getProductService = async ({
 
   if (sort === "price_asc") {
     sortOption = {
-      price: 1,
+      sellingPrice: 1,
     };
   }
 
   if (sort === "price_desc") {
     sortOption = {
-      price: -1,
+      sellingPrice: -1,
     };
   }
 
@@ -93,32 +115,59 @@ export const getProductService = async ({
     .limit(limit);
 
   const productsWithStatus = await Promise.all(
-    products.map(async (product) => {
-      let imageUrl = null;
+  products.map(async (product) => {
+    let imageUrl = null;
 
-      if (product.image?.key) {
-        imageUrl = await getSignedUrl(
-          s3,
-          new GetObjectCommand({
-            Bucket: process.env.R2_BUCKET,
-            Key: product.image.key,
-          }),
-          { expiresIn: 300 },
+    if (product.image?.key) {
+      imageUrl = await getSignedUrl(
+        s3,
+        new GetObjectCommand({
+          Bucket: process.env.R2_BUCKET,
+          Key: product.image.key,
+        }),
+        { expiresIn: 300 },
+      );
+    }
+
+    let variants = [];
+
+    if (product.hasVariants) {
+      const productVariants = await ProductVariant.find({
+        productId: product._id,
+        isActive: true,
+      });
+
+      const variantIds = productVariants.map(v => v._id);
+
+      const inventories = await Inventory.find({
+        variantId: { $in: variantIds },
+      });
+
+      const inventoryMap = new Map();
+
+      inventories.forEach((inventory) => {
+        inventoryMap.set(
+          inventory.variantId.toString(),
+          inventory.stock
         );
-      }
+      });
 
-      return {
-        ...product.toObject(),
-        imageUrl,
-        stockStatus:
-          product.stock === 0
-            ? "Out of Stock"
-            : product.stock <= 5
-              ? "Low Stock"
-              : "In Stock",
-      };
-    }),
-  );
+      variants = productVariants.map((variant) => ({
+        ...variant.toObject(),
+        stock: inventoryMap.get(
+          variant._id.toString()
+        ) || 0,
+      }));
+    }
+
+    return {
+      ...product.toObject(),
+      imageUrl,
+      variants,
+    };
+  }),
+);
+
 
   // total count
   const totalProducts = await Product.countDocuments(query);
@@ -142,50 +191,115 @@ export const getProductByIdService = async (productId) => {
     isActive: true,
   }).populate("image");
 
+  if (!product) {
+    return null;
+  }
+
   let imageUrl = null;
 
-  if (product?.image?.key) {
+  if (product.image?.key) {
     imageUrl = await getSignedUrl(
       s3,
       new GetObjectCommand({
         Bucket: process.env.R2_BUCKET,
         Key: product.image.key,
       }),
-      { expiresIn: 300 },
+      {
+        expiresIn: 300,
+      },
     );
   }
+
+  // Single product
+  if (!product.hasVariants) {
+    const inventory = await Inventory.findOne({
+      productId: product._id,
+    });
+
+    return {
+      ...product.toObject(),
+      imageUrl,
+
+      inventory: {
+        stock: inventory?.stock || 0,
+      },
+    };
+  }
+
+  // has variants
+  const variants = await ProductVariant.find({
+    productId: product._id,
+    isActive: true,
+  });
+
+  const variantIds = variants.map((variant) => variant._id);
+
+  const inventories = await Inventory.find({
+    variantId: {
+      $in: variantIds,
+    },
+  });
+
+  const inventoryMap = new Map();
+
+  inventories.forEach((inventory) => {
+    inventoryMap.set(inventory.variantId.toString(), inventory);
+  });
+
+  const variantsWithInventory = variants.map((variant) => {
+    const inventory = inventoryMap.get(variant._id.toString());
+
+    return {
+      ...variant.toObject(),
+      stock: inventory?.stock || 0,
+    };
+  });
 
   return {
     ...product.toObject(),
     imageUrl,
+    variants: variantsWithInventory,
   };
 };
 
 export const updateProductService = async (productId, updateData) => {
-  if (updateData.sku) {
-    const existingProduct = await Product.findOne({
-      sku: updateData.sku,
-      _id: { $ne: productId },
-    });
+  const product = await Product.findById(productId);
 
-    if (existingProduct) {
-      throw new Error("SKU already exists");
+  if (!product || !product.isActive) {
+    return null;
+  }
+
+  // Simple Product Validation
+  if (!product.hasVariants) {
+    if (updateData.sellingPrice !== undefined && updateData.sellingPrice < 0) {
+      throw new Error("Selling price cannot be negative");
+    }
+
+    if (updateData.sku) {
+      const existingProduct = await Product.findOne({
+        sku: updateData.sku,
+        _id: { $ne: productId },
+      });
+
+      if (existingProduct) {
+        throw new Error("SKU already exists");
+      }
     }
   }
 
-  if (updateData.price !== undefined && updateData.price < 0) {
-    throw new Error("Price cannot be negative");
+  // Variant Product Validation
+  if (product.hasVariants) {
+    if (updateData.sku) {
+      throw new Error("Variant products cannot have SKU");
+    }
+
+    if (updateData.sellingPrice !== undefined) {
+      throw new Error("Variant products cannot have selling price");
+    }
   }
 
-  if (updateData.stock !== undefined && updateData.stock < 0) {
-    throw new Error("Stock cannot be negative");
-  }
-
-  const updatedProduct = await Product.findOneAndUpdate(
-    {
-      _id: productId,
-      isActive: true,
-    },
+  const updatedProduct = await Product.findByIdAndUpdate(
+    productId,
     updateData,
     {
       new: true,
@@ -193,20 +307,18 @@ export const updateProductService = async (productId, updateData) => {
     },
   ).populate("image");
 
-  if (!updatedProduct) {
-    return null;
-  }
-
   let imageUrl = null;
 
-  if (updatedProduct.image?.key) {
+  if (updatedProduct?.image?.key) {
     imageUrl = await getSignedUrl(
       s3,
       new GetObjectCommand({
         Bucket: process.env.R2_BUCKET,
         Key: updatedProduct.image.key,
       }),
-      { expiresIn: 300 },
+      {
+        expiresIn: 300,
+      },
     );
   }
 
