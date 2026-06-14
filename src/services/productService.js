@@ -114,7 +114,7 @@ export const getProductService = async ({
     .skip(skip)
     .limit(limit);
 
-  const productsWithStatus = await Promise.all(
+const productsWithStatus = await Promise.all(
   products.map(async (product) => {
     let imageUrl = null;
 
@@ -125,47 +125,63 @@ export const getProductService = async ({
           Bucket: process.env.R2_BUCKET,
           Key: product.image.key,
         }),
-        { expiresIn: 300 },
+        { expiresIn: 300 }
       );
     }
 
-    let variants = [];
-
-    if (product.hasVariants) {
-      const productVariants = await ProductVariant.find({
+    // SINGLE PRODUCT
+    if (!product.hasVariants) {
+      const inventory = await Inventory.findOne({
         productId: product._id,
-        isActive: true,
       });
 
-      const variantIds = productVariants.map(v => v._id);
-
-      const inventories = await Inventory.find({
-        variantId: { $in: variantIds },
-      });
-
-      const inventoryMap = new Map();
-
-      inventories.forEach((inventory) => {
-        inventoryMap.set(
-          inventory.variantId.toString(),
-          inventory.stock
-        );
-      });
-
-      variants = productVariants.map((variant) => ({
-        ...variant.toObject(),
-        stock: inventoryMap.get(
-          variant._id.toString()
-        ) || 0,
-      }));
+      return {
+        ...product.toObject(),
+        imageUrl,
+        stock: inventory?.stock || 0,
+        variants: [],
+      };
     }
+
+    // VARIANT PRODUCT
+    const productVariants = await ProductVariant.find({
+      productId: product._id,
+      isActive: true,
+    });
+
+    const variantIds = productVariants.map((v) => v._id);
+
+    const inventories = await Inventory.find({
+      variantId: { $in: variantIds },
+    });
+
+    const inventoryMap = new Map();
+
+    inventories.forEach((inventory) => {
+      inventoryMap.set(
+        inventory.variantId.toString(),
+        inventory.stock
+      );
+    });
+
+    const variants = productVariants.map((variant) => ({
+      ...variant.toObject(),
+      stock:
+        inventoryMap.get(variant._id.toString()) || 0,
+    }));
+
+    const totalStock = variants.reduce(
+      (sum, v) => sum + v.stock,
+      0
+    );
 
     return {
       ...product.toObject(),
       imageUrl,
       variants,
+      stock: totalStock,
     };
-  }),
+  })
 );
 
 
@@ -230,7 +246,7 @@ export const getProductByIdService = async (productId) => {
   const variants = await ProductVariant.find({
     productId: product._id,
     isActive: true,
-  });
+  }).populate("image");
 
   const variantIds = variants.map((variant) => variant._id);
 
@@ -246,14 +262,39 @@ export const getProductByIdService = async (productId) => {
     inventoryMap.set(inventory.variantId.toString(), inventory);
   });
 
-  const variantsWithInventory = variants.map((variant) => {
+  const variantsWithInventory = await Promise.all(
+  variants.map(async (variant) => {
     const inventory = inventoryMap.get(variant._id.toString());
 
-    return {
-      ...variant.toObject(),
-      stock: inventory?.stock || 0,
-    };
-  });
+    let imageUrls = [];
+
+    if (variant.image?.length > 0) {
+      imageUrls = await Promise.all(
+        variant.image.map(async (img) => {
+          return await getSignedUrl(
+            s3,
+            new GetObjectCommand({
+              Bucket: process.env.R2_BUCKET,
+              Key: img.key,
+            }),
+            { expiresIn: 300 }
+          );
+        })
+      );
+    }
+
+   const variantObj = variant.toObject();
+
+return {
+  ...variantObj,
+  attributes: Object.fromEntries(
+    variant.attributes || new Map()
+  ),
+  stock: inventory?.stock || 0,
+  imageUrls,
+};
+  })
+);
 
   return {
     ...product.toObject(),
