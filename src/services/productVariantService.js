@@ -31,7 +31,7 @@ export const createVariantService = async (productId, variantData) => {
   });
 
   await Inventory.create({
-     productId: productId,
+    productId: productId,
     variantId: variant._id,
     stock: 0,
   });
@@ -62,8 +62,11 @@ export const getVariantsByProductService = async (productId) => {
   return variants.map((variant) => {
     const inventory = inventoryMap.get(variant._id.toString());
 
+    const variantObj = variant.toObject();
+
     return {
-      ...variant.toObject(),
+      ...variantObj,
+      attributes: Object.fromEntries(variant.attributes || new Map()),
       stock: inventory?.stock || 0,
     };
   });
@@ -83,9 +86,11 @@ export const getVariantByIdService = async (variantId) => {
     variantId,
   });
 
+  const variantObj = variant.toObject();
+
   return {
-    ...variant.toObject(),
-    stock: inventory?.stock || 0,
+    ...variantObj,
+    attributes: Object.fromEntries(variant.attributes || new Map()), stock: inventory?.stock || 0,
   };
 };
 
